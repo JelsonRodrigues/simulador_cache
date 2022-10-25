@@ -104,6 +104,7 @@ impl Cache {
     pub fn tag_do_endereco(&self, endereco:u32) -> u32 {
         endereco >> (self.index_size + self.offset_size)
     }
+
     pub fn indice_do_endereco(&self, endereco:u32) -> u32 {
         // Remove os bits do tag
         let mut indice = endereco << self.tag_size;
@@ -116,6 +117,7 @@ impl Cache {
         // Deixa somente os bits do índice
         indice >> self.tag_size
     }
+    
     pub fn offset_endereco(&self, endereco:u32) -> u32 {
         // Deixa somente os bits do offset
         let resultado = endereco << (self.index_size + self.tag_size);

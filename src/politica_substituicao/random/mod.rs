@@ -10,28 +10,48 @@ struct Linha {
     bloco:Vec<i8>,
 }
 impl Linha {
-    fn new() -> Self {
-        Linha { validade: false, tag: 0, bloco: Vec::new() }
+    fn new(cache_conf:&Cache) -> Self {
+        Linha { validade: false, tag: 0, bloco: Linha::criar_bloco(cache_conf.bsize() as usize) }
+    }
+    fn criar_bloco(bsize:usize) -> Vec<i8> {
+        // Retorna um vetor com bsize posicoes, cada posicao tem tipo i8 e esta inicializada com 0
+        vec![0 as i8;bsize]
     }
 }
 
 pub struct Random {
+    /*
+    Contem as informacoes da cache, tais como nsets, assoc, bsize ...
+    Tambem contem um registro dos acessos a cache,  que guardam a informacao
+    de numero de hits, misses e o tipo dos misses
+    */
     cache_conf:Cache,
+    
+    /*
+    E uma matriz, onde o numero de linhas da matriz
+    sera o valor de nsets, o numero de colunas sera
+    a associatividade, e cada item dentro da matriz sera
+    do tipo Linha, que possui tag, validade e um vetor 
+    de bsize posicoes.
+    Deste modo e uma matriz tridimensional, A x B x C, 
+    onde A = nsets, B = assoc e C = bsize
+     */
     memoria:Vec<Vec<Linha>>,
     random_source:ThreadRng,
 }
 
 impl Random {
+    // Construtor
     pub fn new(cache_conf: Cache) -> Self { 
+        // Numero de linhas na matriz
         let mut memoria = Vec::with_capacity(cache_conf.nsets() as usize);
         
         for _ in 0..cache_conf.nsets() {
+            // Numero de colunas da matriz
             let mut item:Vec<Linha> = Vec::with_capacity(cache_conf.assoc() as usize);
             for _ in 0..cache_conf.assoc() {
-                let mut bloco = Linha::new();
-                for _ in 0..cache_conf.bsize() {
-                    bloco.bloco.push(0);
-                }
+                // Criacao do conteudo de cada bloco da cache
+                let bloco = Linha::new(&cache_conf);
                 item.push(bloco);
             }
             memoria.push(item);  
@@ -46,16 +66,31 @@ impl Random {
         } 
     }
     
+    // Retorna uma referencia de read-only do historico de acessos da cache
     pub fn historico_acessos(&self) -> &HistoricoAcessos {
         self.cache_conf.historico()
     }
     
     fn trata_falta_leitura(&mut self, endereco:u32) {
-        // Lê do nível inferior a nova linha
-        let mut nova_linha = Linha::new();
+        /*
+        Atualmente eu crio uma nova linha, inicializo os valores da linha de acordo com
+        a memoria de nivel inferior e coloco esta linha na posicao correta da cache,
+        so que nao estou liberando a memoria que a linha anterior ocupava, sera o rust
+        ja faz isso?
+
+        A forma mais correta e primeiro eu identificar o local de onde deve ficar o bloco
+        e ja ler do nivel inferior diretamente para la, assim nao tenho que me preocupar com 
+        desalocacao, so tem que criar metodos na Linha para que possa ser alterado os valores
+        de tag validade e o vetor com os bytes
+        */
+        
+        
+        // Cria a nova linha que entrara na cache
+        let mut nova_linha = Linha::new(&self.cache_conf);
         nova_linha.tag = self.cache_conf.tag_do_endereco(endereco);
         nova_linha.validade = true;
 
+        // 
         let tamanho_bloco = self.cache_conf.bsize();
         let endereco_sem_offset = self.cache_conf.offset_endereco(endereco) ^ endereco;
         for i in 0..tamanho_bloco {
@@ -78,6 +113,11 @@ impl Random {
             self.memoria[linha_conjunto as usize][(posicao % self.cache_conf.assoc()) as usize] = nova_linha;
         }
     }
+    /*
+    Esta funcao procura por algum bloco vazio na linhas, e retorna uma tupla
+    que contem uma flag true/false se encontrou ou nao e caso seja true, 
+    o segundo elemento da tupla e o indice da coluna da matriz, onde esta vazio
+    */
     fn possui_espaco_vazio_no_conjunto(&self, indice:u32) -> (bool, usize) {
         let mut posicao = 0;
         for c in &self.memoria[indice as usize] {
@@ -97,11 +137,24 @@ impl Memoria for Random {
         let tag_procura = self.cache_conf.tag_do_endereco(endereco);
         let mut resultado:Vec<i8> = Vec::new();
 
+
+        /*
+        Nesta parte, de verdade todos os conjuntos da associatividade deveriam 
+        ser verificados ao mesmo tempo
+        Para implementar em codigo talvez desse para fazer utilizando threads,
+        deste modo teria um comportamento proximo ao real, apenas o tamanho da associatividade
+        teria que ser sempre <= ao numero de threads disponiveis no computador
+
+        No codigo atual os conjuntos sao verificados de forma sequencial, por facilidade
+        de implementacao
+        */
         for item in &self.memoria[indice_procura as usize] {
             if item.tag == tag_procura && item.validade {
                 self.cache_conf.historico_mut().adicionar_hit();
                 // Se endereçado a byte, retorna um único byte
-                // Senão retorna o número de bytes correspondente ao tamanho do endereço
+                // Senão retorna o bloco o numero de bytes correspondente ao endereco?
+                // Nao da pra retornar o bloco inteiro, porque podem ter varios blocos dentro 
+                // de um bloco da cache, bsize > 1
                 if self.cache_conf.enderecado_byte() {
                     resultado.push(item.bloco.get(self.cache_conf.offset_endereco(endereco) as usize).unwrap().clone());
                 }
@@ -116,8 +169,8 @@ impl Memoria for Random {
             }
         }
 
+        // Occoreu um miss
         if resultado.len() == 0 {
-            // Occoreu um miss
             
             // Mapeamento direto
             if self.cache_conf.assoc() == 1 {
