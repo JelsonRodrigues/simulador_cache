@@ -1,0 +1,68 @@
+{
+    // Use o IntelliSense para saber mais sobre os atributos possíveis.
+    // Focalizar para exibir as descrições dos atributos existentes.
+    // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'cache_simulator'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=cache_simulator",
+                    "--package=cache_simulator",
+                ],
+                "filter": {
+                    "name": "cache_simulator",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "128",
+                "2",
+                "4",
+                "R",
+                "1",
+                "D:\\Scripts\\simulador_cache\\src\\data\\bin_1000.bin"
+            ],
+            // "args": [
+			// 	"256",
+			// 	"1",
+			// 	"2",
+			// 	"R",
+			// 	"1",
+			// 	"D:\\Scripts\\simulador_cache\\src\\data\\bin_10000.bin"
+			// ],
+            // "args": [
+			// 	"512",
+			// 	"8",
+			// 	"2",
+			// 	"R",
+			// 	"1",
+			// 	"D:\\Scripts\\simulador_cache\\src\\data\\vortex.in.sem.persons.bin"
+			// ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'cache_simulator'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=cache_simulator",
+                    "--package=cache_simulator"
+                ],
+                "filter": {
+                    "name": "cache_simulator",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

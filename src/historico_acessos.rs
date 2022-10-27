@@ -34,38 +34,38 @@ impl HistoricoAcessos {
         self.misses += 1;
     }
     pub fn calcular_taxa_de_hit(&self) -> f32 {
-        let total_acessos = self.hits + self.misses;
+        let total_acessos = self.total_acessos();
         if total_acessos > 0 {
             return self.hits as f32 / total_acessos as f32;
         }
         return 0.0;
     }
     pub fn calcular_taxa_de_miss(&self) -> f32 {
-        let total_acessos = self.hits + self.misses;
+        let total_acessos = self.total_acessos();
         if total_acessos > 0 {
             return self.misses as f32 / total_acessos as f32;
         }
         return 0.0;
     }
     pub fn calcular_taxa_de_miss_conflito(&self) -> f32 {
-        let total_acessos = self.hits + self.misses;
-        if total_acessos > 0 {
-            return self.misses_conflito as f32 / total_acessos as f32;
+        if self.misses > 0 {
+            return self.misses_conflito as f32 / self.misses as f32;
         }
         return 0.0;
     }
     pub fn calcular_taxa_de_miss_capacidade(&self) -> f32 {
-        let total_acessos = self.hits + self.misses;
-        if total_acessos > 0 {
-            return self.misses_capacidade as f32 / total_acessos as f32;
+        if self.misses > 0 {
+            return self.misses_capacidade as f32 / self.misses as f32;
         }
         return 0.0;
     }
     pub fn calcular_taxa_de_miss_compulsorio(&self) -> f32 {
-        let total_acessos = self.hits + self.misses;
-        if total_acessos > 0 {
-            return self.misses_compulsorios as f32 / total_acessos as f32;
+        if self.misses > 0 {
+            return self.misses_compulsorios as f32 / self.misses as f32;
         }
         return 0.0;
+    }
+    pub fn total_acessos(&self) -> u32 {
+        self.hits + self.misses
     }
 }

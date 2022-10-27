@@ -21,23 +21,29 @@ impl Linha {
 
 pub struct Random {
     /*
-    Contem as informacoes da cache, tais como nsets, assoc, bsize ...
-    Tambem contem um registro dos acessos a cache,  que guardam a informacao
-    de numero de hits, misses e o tipo dos misses
+        Contem as informacoes da cache, tais como nsets, assoc, bsize ...
+        Tambem contem um registro dos acessos a cache,  que guardam a informacao
+        de numero de hits, misses e o tipo dos misses
     */
     cache_conf:Cache,
     
     /*
-    E uma matriz, onde o numero de linhas da matriz
-    sera o valor de nsets, o numero de colunas sera
-    a associatividade, e cada item dentro da matriz sera
-    do tipo Linha, que possui tag, validade e um vetor 
-    de bsize posicoes.
-    Deste modo e uma matriz tridimensional, A x B x C, 
-    onde A = nsets, B = assoc e C = bsize
-     */
+        E uma matriz, onde o numero de linhas da matriz
+        sera o valor de nsets, o numero de colunas sera
+        a associatividade, e cada item dentro da matriz sera
+        do tipo Linha, que possui tag, validade e um vetor 
+        de bsize posicoes.
+        Deste modo e uma matriz tridimensional, A x B x C, 
+        onde A = nsets, B = assoc e C = bsize
+    */
     memoria:Vec<Vec<Linha>>,
+
+    /*
+        Fonte de números pseudo-aleatórios
+    */
     random_source:ThreadRng,
+
+    cache_cheia:bool,
 }
 
 impl Random {
@@ -62,7 +68,8 @@ impl Random {
         Self { 
             cache_conf, 
             memoria, 
-            random_source 
+            random_source,
+            cache_cheia:false
         } 
     }
     
@@ -71,47 +78,35 @@ impl Random {
         self.cache_conf.historico()
     }
     
-    fn trata_falta_leitura(&mut self, endereco:u32) {
-        /*
-        Atualmente eu crio uma nova linha, inicializo os valores da linha de acordo com
-        a memoria de nivel inferior e coloco esta linha na posicao correta da cache,
-        so que nao estou liberando a memoria que a linha anterior ocupava, sera o rust
-        ja faz isso?
-
-        A forma mais correta e primeiro eu identificar o local de onde deve ficar o bloco
-        e ja ler do nivel inferior diretamente para la, assim nao tenho que me preocupar com 
-        desalocacao, so tem que criar metodos na Linha para que possa ser alterado os valores
-        de tag validade e o vetor com os bytes
-        */
-        
-        
+    fn trata_falta_leitura(&mut self, endereco:u32) -> Linha {
         // Cria a nova linha que entrara na cache
         let mut nova_linha = Linha::new(&self.cache_conf);
         nova_linha.tag = self.cache_conf.tag_do_endereco(endereco);
         nova_linha.validade = true;
+        nova_linha.bloco.clear();
 
-        // 
         let tamanho_bloco = self.cache_conf.bsize();
         let endereco_sem_offset = self.cache_conf.offset_endereco(endereco) ^ endereco;
-        for i in 0..tamanho_bloco {
-            let mut byte = self.cache_conf.nivel_inferior_mut().read(endereco_sem_offset + i);
-            
-            nova_linha.bloco.append(&mut byte);
+        
+        if self.cache_conf.enderecado_byte() {
+            // Busca o número de bytes da memória inferior para encher o bloco
+            for i in 0..tamanho_bloco {
+                let mut byte = self.cache_conf.nivel_inferior_mut().read(endereco_sem_offset + i);
+    
+                nova_linha.bloco.append(&mut byte);
+            }
         }
-
-        // Verifica se tem algum espaço vazio no conjunto para inserir
-        let linha_conjunto = self.cache_conf.indice_do_endereco(endereco);
-        let possui_espaco_nao_ocupado = self.possui_espaco_vazio_no_conjunto(linha_conjunto);
-
-        // Se sim, insere no local
-        if possui_espaco_nao_ocupado.0 {
-            self.memoria[linha_conjunto as usize][possui_espaco_nao_ocupado.1] = nova_linha;
-        }
-        // Se não aleatoriamente escolhe o valor a ser substituido
         else {
-            let posicao:u32 = self.random_source.gen();
-            self.memoria[linha_conjunto as usize][(posicao % self.cache_conf.assoc()) as usize] = nova_linha;
+            // Busca o número de palavras da memória inferior para encher o bloco
+            let palavras_por_bloco = tamanho_bloco / self.cache_conf.bytes_por_palavra() as u32;
+            for i in 0..palavras_por_bloco {
+                let mut byte = self.cache_conf.nivel_inferior_mut().read(endereco_sem_offset + i);
+    
+                nova_linha.bloco.append(&mut byte);
+            }
         }
+
+        nova_linha
     }
     /*
     Esta funcao procura por algum bloco vazio na linhas, e retorna uma tupla
@@ -121,12 +116,25 @@ impl Random {
     fn possui_espaco_vazio_no_conjunto(&self, indice:u32) -> (bool, usize) {
         let mut posicao = 0;
         for c in &self.memoria[indice as usize] {
-            if c.validade {
+            if c.validade == false {
                 return (true, posicao);
             }
             posicao += 1;
         }
         return (false, posicao);
+    }
+    /*
+    Passa por cada linha e verifica se existe espaço vazio em algum conjunto da linha
+    */
+    fn verifica_cache_encheu(&self) -> bool {
+        let mut cheia = true;
+        for i in 0..self.memoria.len() as u32 {
+            if self.possui_espaco_vazio_no_conjunto(i).0 {
+                cheia = false;
+                break;
+            }
+        }
+        cheia
     }
 }
 
@@ -137,79 +145,63 @@ impl Memoria for Random {
         let tag_procura = self.cache_conf.tag_do_endereco(endereco);
         let mut resultado:Vec<i8> = Vec::new();
 
-
-        /*
-        Nesta parte, de verdade todos os conjuntos da associatividade deveriam 
-        ser verificados ao mesmo tempo
-        Para implementar em codigo talvez desse para fazer utilizando threads,
-        deste modo teria um comportamento proximo ao real, apenas o tamanho da associatividade
-        teria que ser sempre <= ao numero de threads disponiveis no computador
-
-        No codigo atual os conjuntos sao verificados de forma sequencial, por facilidade
-        de implementacao
-        */
         for item in &self.memoria[indice_procura as usize] {
             if item.tag == tag_procura && item.validade {
                 self.cache_conf.historico_mut().adicionar_hit();
-                // Se endereçado a byte, retorna um único byte
-                // Senão retorna o bloco o numero de bytes correspondente ao endereco?
-                // Nao da pra retornar o bloco inteiro, porque podem ter varios blocos dentro 
-                // de um bloco da cache, bsize > 1
                 if self.cache_conf.enderecado_byte() {
                     resultado.push(item.bloco.get(self.cache_conf.offset_endereco(endereco) as usize).unwrap().clone());
                 }
                 else {
-                    // Aqui eu vou ter que ver depois qual a parte do bloco eu tenho que pegar
-                    // o retorno deve ser sempre: tamanho do endereço em bits / 8 bits
-                    for valor in &item.bloco {
-                        resultado.push(valor.clone());
+                    let inicio_palavra = self.cache_conf.offset_endereco(endereco) as usize;
+                    for i in 0..self.cache_conf.bytes_por_palavra() as usize {
+                        resultado.push(item.bloco.get(inicio_palavra + i).unwrap().clone());
                     }
                 }
                 break;
             }
         }
 
-        // Occoreu um miss
+        // Occoreu um miss ?
         if resultado.len() == 0 {
             
-            // Mapeamento direto
-            if self.cache_conf.assoc() == 1 {
-                if self.memoria[indice_procura as usize][0].validade == false {
-                    self.cache_conf.historico_mut().adicionar_miss(FonteMiss::Compulsorio);
+            let nova_linha = self.trata_falta_leitura(endereco);
+
+            // Copia os valores para o resultado
+            if self.cache_conf.enderecado_byte() {
+                resultado.push(nova_linha.bloco.get(self.cache_conf.offset_endereco(endereco) as usize).unwrap().clone());
+            }
+            else {
+                let inicio_palavra = self.cache_conf.offset_endereco(endereco) as usize;
+                for i in 0..self.cache_conf.bytes_por_palavra() as usize {
+                    resultado.push(nova_linha.bloco.get(inicio_palavra + i).unwrap().clone());
+                }
+            }
+
+
+            // Verifica se tem algum conjunto com espaço vazio para inserir na linha da cache
+            let possui_espaco_nao_ocupado = self.possui_espaco_vazio_no_conjunto(indice_procura);
+
+            // Se sim, insere no local e  adiciona um miss compulsório
+            if possui_espaco_nao_ocupado.0 {
+                self.memoria[indice_procura as usize][possui_espaco_nao_ocupado.1] = nova_linha;
+                self.cache_conf.historico_mut().adicionar_miss(FonteMiss::Compulsorio);
+            }
+            // Se não aleatoriamente escolhe o valor a ser substituido e atualiza o registro de miss
+            else {
+                let posicao:u32 = self.random_source.gen();
+                
+                self.memoria[indice_procura as usize][(posicao % self.cache_conf.assoc()) as usize] = nova_linha;
+
+                // Se a cache já está cheia é miss de capacidade, senão é de conflito
+                if self.cache_cheia {
+                    self.cache_conf.historico_mut().adicionar_miss(FonteMiss::Capacidade);
                 }
                 else {
                     self.cache_conf.historico_mut().adicionar_miss(FonteMiss::Conflito);
-                }
-            }
-            else {
-                let indice_vazio = self.possui_espaco_vazio_no_conjunto(indice_procura);
-                if indice_vazio.0 {
-                    self.cache_conf.historico_mut().adicionar_miss(FonteMiss::Compulsorio);
-                }
-                else {
-                    self.cache_conf.historico_mut().adicionar_miss(FonteMiss::Capacidade);
+                    self.cache_cheia = self.verifica_cache_encheu();
                 }
             }
 
-            self.trata_falta_leitura(endereco);
-
-            for item in &self.memoria[indice_procura as usize] {
-                if item.tag == tag_procura && item.validade {
-                    // Se endereçado a byte, retorna um único byte
-                    // Senão retorna o número de bytes correspondente ao tamanho do endereço
-                    if self.cache_conf.enderecado_byte() {
-                        resultado.push(item.bloco.get(self.cache_conf.offset_endereco(endereco) as usize).unwrap().clone());
-                    }
-                    else {
-                        // Aqui eu vou ter que ver depois qual a parte do bloco eu tenho que pegar
-                        // o retorno deve ser sempre: tamanho do endereço em bits / 8 bits
-                        for valor in &item.bloco {
-                            resultado.push(valor.clone());
-                        }
-                    }
-                    break;
-                }
-            }
         }
         
         resultado
