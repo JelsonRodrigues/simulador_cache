@@ -89,10 +89,12 @@ impl Cache {
     pub fn nivel_inferior_mut(&mut self) -> &mut dyn Memoria { self.nivel_inferior.as_mut() }
 
     pub fn tag_do_endereco(&self, endereco:u32) -> u32 {
+        if self.tag_size == 0 { return 0; }
         endereco >> (self.index_size + self.offset_size)
     }
 
     pub fn indice_do_endereco(&self, endereco:u32) -> u32 {
+        if self.index_size == 0 { return 0; }
         // Remove os bits do tag
         let indice = endereco << self.tag_size;
 
