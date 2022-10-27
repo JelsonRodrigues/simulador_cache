@@ -22,7 +22,7 @@ impl Linha {
 pub struct Random {
     /*
         Contem as informacoes da cache, tais como nsets, assoc, bsize ...
-        Tambem contem um registro dos acessos a cache,  que guardam a informacao
+        Tambem contem um registro dos acessos a cache, que guardam a informacao
         de numero de hits, misses e o tipo dos misses
     */
     cache_conf:Cache,
@@ -73,7 +73,7 @@ impl Random {
         } 
     }
     
-    // Retorna uma referencia de read-only do historico de acessos da cache
+    // Retorna uma referencia read-only do historico de acessos da cache
     pub fn historico_acessos(&self) -> &HistoricoAcessos {
         self.cache_conf.historico()
     }
@@ -88,22 +88,18 @@ impl Random {
         let tamanho_bloco = self.cache_conf.bsize();
         let endereco_sem_offset = self.cache_conf.offset_endereco(endereco) ^ endereco;
         
-        if self.cache_conf.enderecado_byte() {
-            // Busca o número de bytes da memória inferior para encher o bloco
-            for i in 0..tamanho_bloco {
-                let mut byte = self.cache_conf.nivel_inferior_mut().read(endereco_sem_offset + i);
-    
-                nova_linha.bloco.append(&mut byte);
-            }
-        }
-        else {
-            // Busca o número de palavras da memória inferior para encher o bloco
-            let palavras_por_bloco = tamanho_bloco / self.cache_conf.bytes_por_palavra() as u32;
-            for i in 0..palavras_por_bloco {
-                let mut byte = self.cache_conf.nivel_inferior_mut().read(endereco_sem_offset + i);
-    
-                nova_linha.bloco.append(&mut byte);
-            }
+        // Busca o número de palavras da memória inferior para encher o bloco, 
+        // Caso seja enderecado a byte a memoria de nivel inferior, o numero de requisicoes
+        // para a memoria de nivel inferior, vai ser o numero de bytes que cabe em um bloco
+        // porque a cada endereco que e requisitado, a memoria retorna um unico byte
+        // enquanto que se nao for enderecada a byte, vai fazer tamanho do bloco / bytes por palavra
+        // requisicoes a memoria, porque a cada endereco requisitado ela retorna o numero de 
+        // bytes por palavra, sendo assim o bloco enche mais rapidamente 
+        let palavras_por_bloco = tamanho_bloco / self.cache_conf.bytes_por_palavra() as u32;
+        for i in 0..palavras_por_bloco {
+            let mut byte = self.cache_conf.nivel_inferior_mut().read(endereco_sem_offset + i);
+
+            nova_linha.bloco.append(&mut byte);
         }
 
         nova_linha
