@@ -8,13 +8,23 @@
 				"$rustc"
 			],
 			// "args": [
-			// 	"128",
-			// 	"2",
+			// 	"256",
 			// 	"4",
+			// 	"1",
 			// 	"R",
 			// 	"1",
-			// 	"D:\\Scripts\\simulador_cache\\src\\data\\bin_1000.bin"
+			// 	"/home/jelson/Documentos/simulador_cache/src/data/bin_100.bin"
+			// 	// "D:\\Scripts\\simulador_cache\\src\\data\\bin_1000.bin"
 			// ],
+			"args": [
+				"128",
+				"2",
+				"4",
+				"R",
+				"1",
+				"/home/jelson/Documentos/simulador_cache/src/data/bin_1000.bin"
+				// "D:\\Scripts\\simulador_cache\\src\\data\\bin_1000.bin"
+			],
 			// "args": [
 			// 	"256",
 			// 	"1",
@@ -23,15 +33,16 @@
 			// 	"1",
 			// 	"D:\\Scripts\\simulador_cache\\src\\data\\bin_10000.bin"
 			// ],
-			"args": [
-				"512",
-				"8",
-				"2",
-				"R",
-				"1",
-				"D:\\Scripts\\simulador_cache\\src\\data\\vortex.in.sem.persons.bin"
-			],
-			"label": "rust: cargo run"
+			// "args": [
+			// 	"512",
+			// 	"8",
+			// 	"2",
+			// 	"R",
+			// 	"0",
+			// 	"/home/jelson/Documentos/simulador_cache/src/data/vortex.in.sem.persons.bin"
+			// 	// "D:\\Scripts\\simulador_cache\\src\\data\\vortex.in.sem.persons.bin"
+			// ],
+			"label": "rust: cargo run with arguments"
 		},
 	]
 }

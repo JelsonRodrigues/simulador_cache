@@ -20,13 +20,14 @@
                 }
             },
             "args": [
-                "128",
-                "2",
-                "4",
-                "R",
-                "1",
-                "D:\\Scripts\\simulador_cache\\src\\data\\bin_1000.bin"
-            ],
+				"128",
+				"2",
+				"4",
+				"R",
+				"1",
+				"/home/jelson/Documentos/simulador_cache/src/data/bin_1000.bin"
+				// "D:\\Scripts\\simulador_cache\\src\\data\\bin_1000.bin"
+			],
             // "args": [
 			// 	"256",
 			// 	"1",
