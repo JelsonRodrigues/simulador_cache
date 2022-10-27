@@ -42,7 +42,7 @@ fn main() {
             cache_l1.read(endereco);
         }
 
-        mostrar_resultados(argumentos.flag_saida, cache_l1.historico_acessos());
+        mostrar_resultados(argumentos.flag_saida, cache_l1.historico_acessos()); 
     }
     else {
         println!("Ainda não implementado a opção {}", argumentos.substituicao);
@@ -95,7 +95,7 @@ fn parse_args(args:Args) -> Argumentos {
 
 fn mostrar_resultados(flag_saida:bool, historico:&HistoricoAcessos){
     if flag_saida {
-        println!("{} {:.2} {:.2} {:.2} {:.2} {:.2}", 
+        println!("{}, {:.2}, {:.2}, {:.2}, {:.2}, {:.2}", 
             historico.total_acessos(),
             historico.calcular_taxa_de_hit(),
             historico.calcular_taxa_de_miss(),
