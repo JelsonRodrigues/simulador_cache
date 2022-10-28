@@ -30,8 +30,8 @@ fn main() {
     let mut arquivo_enderecos = File::open(argumentos.arquivo_entrada)
                                         .expect("Não foi possível abrir o arquivo\n");
     
-    let mut buffer:[u8; 4] = [0 as u8, 0 as u8, 0 as u8, 0 as u8];
-    
+    let mut buffer:[u8; 4] = [0, 0, 0, 0];
+
     if argumentos.substituicao == "R" {
         let mut cache_l1 = Random::new(cache_l1_conf);
         
@@ -106,6 +106,11 @@ fn mostrar_resultados(flag_saida:bool, historico:&HistoricoAcessos){
     }
     else {
         println!("Total de acessos: {}", historico.total_acessos());
+        println!("Número de hits {}", historico.get_hits());
+        println!("Número de misses {}", historico.get_misses());
+        println!("Número de misses Compulsorios {}", historico.get_misses_compulsorios());
+        println!("Número de misses Capacidade {}", historico.get_misses_capacidade());
+        println!("Número de misses Conflito {}", historico.get_misses_conflito());
         println!("Taxa de hit: {:.2}%", historico.calcular_taxa_de_hit() * 100.0);
         println!("Taxa de miss: {:.2}%", historico.calcular_taxa_de_miss() * 100.0);
         println!("Taxa de miss Compulsorio: {:.2}%", historico.calcular_taxa_de_miss_compulsorio() * 100.0);
