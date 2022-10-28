@@ -68,4 +68,9 @@ impl HistoricoAcessos {
     pub fn total_acessos(&self) -> u32 {
         self.hits + self.misses
     }
+    pub fn get_hits(&self) -> u32 { self.hits }
+    pub fn get_misses(&self) -> u32 { self.misses }
+    pub fn get_misses_compulsorios(&self) -> u32 { self.misses_compulsorios }
+    pub fn get_misses_capacidade(&self) -> u32 { self.misses_capacidade }
+    pub fn get_misses_conflito(&self) -> u32 { self.misses_conflito }
 }

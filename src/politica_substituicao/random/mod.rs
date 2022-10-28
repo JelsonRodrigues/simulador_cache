@@ -43,7 +43,7 @@ pub struct Random {
     */
     random_source:ThreadRng,
 
-    cache_cheia:bool,
+    bytes_utilizados:u32,
 }
 
 impl Random {
@@ -69,7 +69,7 @@ impl Random {
             cache_conf, 
             memoria, 
             random_source,
-            cache_cheia:false
+            bytes_utilizados:0
         } 
     }
     
@@ -119,18 +119,9 @@ impl Random {
         }
         return (false, posicao);
     }
-    /*
-    Passa por cada linha e verifica se existe espaço vazio em algum conjunto da linha
-    */
+
     fn verifica_cache_encheu(&self) -> bool {
-        let mut cheia = true;
-        for i in 0..self.memoria.len() as u32 {
-            if self.possui_espaco_vazio_no_conjunto(i).0 {
-                cheia = false;
-                break;
-            }
-        }
-        cheia
+        self.bytes_utilizados == self.cache_conf.bsize() * self.cache_conf.assoc() * self.cache_conf.nsets()
     }
 }
 
@@ -173,14 +164,14 @@ impl Memoria for Random {
                 }
             }
 
-
             // Verifica se tem algum conjunto com espaço vazio para inserir na linha da cache
             let possui_espaco_nao_ocupado = self.possui_espaco_vazio_no_conjunto(indice_procura);
 
-            // Se sim, insere no local e  adiciona um miss compulsório
+            // Se sim, insere no local e adiciona um miss compulsório
             if possui_espaco_nao_ocupado.0 {
                 self.memoria[indice_procura as usize][possui_espaco_nao_ocupado.1] = nova_linha;
                 self.cache_conf.historico_mut().adicionar_miss(FonteMiss::Compulsorio);
+                self.bytes_utilizados += self.cache_conf.bsize();
             }
             // Se não aleatoriamente escolhe o valor a ser substituido e atualiza o registro de miss
             else {
@@ -189,12 +180,11 @@ impl Memoria for Random {
                 self.memoria[indice_procura as usize][(posicao % self.cache_conf.assoc()) as usize] = nova_linha;
 
                 // Se a cache já está cheia é miss de capacidade, senão é de conflito
-                if self.cache_cheia {
+                if self.verifica_cache_encheu() {
                     self.cache_conf.historico_mut().adicionar_miss(FonteMiss::Capacidade);
                 }
                 else {
                     self.cache_conf.historico_mut().adicionar_miss(FonteMiss::Conflito);
-                    self.cache_cheia = self.verifica_cache_encheu();
                 }
             }
 
